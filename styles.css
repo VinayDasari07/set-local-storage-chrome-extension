@@ -1,4 +1,4 @@
-* { 
+* {
 	box-sizing: border-box;
 }
 
@@ -28,31 +28,36 @@ button:hover {
     cursor: pointer;
 }
 
-.localStorageCont, .sessionStorageCont {
+.localStorageCont, .sessionStorageCont, .allStorageCont {
     padding: 4px;
 }
 
-.localStorageBtns, .sessionStorageBtns {
+.localStorageBtns, .sessionStorageBtns, .allStorageBtns {
     display: flex;
     justify-content: space-around;
 }
 
-#getLS:hover, #setLS:hover, #getSS:hover, #setSS:hover {
+#getLS:hover, #setLS:hover, #getSS:hover, #setSS:hover, #copyAll:hover {
     background-color: yellow;
     font-weight: bold;
     border-bottom: 3px solid black;
 }
 
-#clearLS:hover, #clearSS:hover {
+#clearLS:hover, #clearSS:hover, #pasteAll:hover {
     background-color: red;
     font-weight: bold;
 }
 
-#feedbackLS, #feedbackSS {
+#feedbackLS, #feedbackSS, #feedbackAll {
     background-color: yellow;
     text-align: center;
 }
 
+.allStorageCont {
+    padding: 4px;
+    border-top: 2px solid #ccc;
+    margin-top: 8px;
+}
 
 #infoTitle:hover, #supportTitle:hover, #reportTitle:hover {
     cursor: pointer;

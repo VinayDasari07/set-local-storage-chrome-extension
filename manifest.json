@@ -1,8 +1,9 @@
 {
-  "name": "GetSet Local Storage & Session Storage",
-  "version": "0.2.0",
+  "name": "GetSet Local Storage & Session Storage & Cookies",
+  "version": "0.3.0",
   "description": "Get all the Local/Session Storage values of one domain and set all those values in other domain's local/session storage. Also, clear the local/session storage.",
-  "permissions": ["scripting", "activeTab", "storage"],
+  "permissions": ["scripting", "activeTab", "storage", "cookies"],
+  "host_permissions": ["<all_urls>"],
   "action": {
     "default_title": "GetSet Local Storage & Session Storage",
     "default_popup": "popup.html"

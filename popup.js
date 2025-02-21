@@ -25,6 +25,10 @@
         const clearSessionStorageBtn = document.querySelector('#clearSS')
         const feedBackForSessionStorage = document.querySelector('#feedbackSS')
 
+        const copyAllBtn = document.querySelector('#copyAll')
+        const pasteAllBtn = document.querySelector('#pasteAll')
+        const feedbackAll = document.querySelector('#feedbackAll')
+
         const footerInfo = document.querySelector('.footerInfo')
 
         /*
@@ -105,6 +109,114 @@
                     typeOfStorage
                 )
             })
+        }
+
+        async function getDomainCookies(tab) {
+            try {
+                const cookies = await chrome.cookies.getAll({ url: tab.url });
+                return cookies;
+            } catch (err) {
+                console.error('Error getting cookies:', err);
+                return [];
+            }
+        }
+
+        async function setDomainCookies(tab, cookies) {
+            try {
+                for (const cookie of cookies) {
+                    // 移除不必要的属性
+                    delete cookie.hostOnly;
+                    delete cookie.session;
+                    
+                    // 确保 url 属性正确
+                    const url = new URL(tab.url);
+                    cookie.url = url.protocol + '//' + url.hostname + url.pathname;
+                    
+                    await chrome.cookies.set(cookie);
+                }
+            } catch (err) {
+                console.error('Error setting cookies:', err);
+            }
+        }
+
+        async function getAllStorageData() {
+            try {
+                // 获取 localStorage 数据
+                const localStorage = {};
+                for (let i = 0; i < window.localStorage.length; i++) {
+                    const key = window.localStorage.key(i);
+                    localStorage[key] = window.localStorage.getItem(key);
+                }
+
+                // 获取 sessionStorage 数据
+                const sessionStorage = {};
+                for (let i = 0; i < window.sessionStorage.length; i++) {
+                    const key = window.sessionStorage.key(i);
+                    sessionStorage[key] = window.sessionStorage.getItem(key);
+                }
+
+                return {
+                    localStorage,
+                    sessionStorage
+                };
+            } catch (err) {
+                console.error('Error in getAllStorageData:', err);
+                return null;
+            }
+        }
+
+        async function getAllCookies(tab) {
+            return new Promise((resolve) => {
+                chrome.cookies.getAll({ url: tab.url }, (cookies) => {
+                    resolve(cookies || []);
+                });
+            });
+        }
+
+        async function setAllStorageData(data) {
+            try {
+                // 设置 localStorage
+                if (data.localStorage) {
+                    Object.keys(data.localStorage).forEach(key => {
+                        window.localStorage.setItem(key, data.localStorage[key]);
+                    });
+                }
+
+                // 设置 sessionStorage
+                if (data.sessionStorage) {
+                    Object.keys(data.sessionStorage).forEach(key => {
+                        window.sessionStorage.setItem(key, data.sessionStorage[key]);
+                    });
+                }
+
+                return true;
+            } catch (err) {
+                console.error('Error in setAllStorageData:', err);
+                return false;
+            }
+        }
+
+        async function setAllCookies(tab, cookies) {
+            try {
+                for (const cookie of cookies) {
+                    const newCookie = {
+                        url: tab.url,
+                        name: cookie.name,
+                        value: cookie.value,
+                        path: cookie.path,
+                        secure: cookie.secure,
+                        httpOnly: cookie.httpOnly,
+                        sameSite: cookie.sameSite,
+                        expirationDate: cookie.expirationDate
+                    };
+                    
+                    await chrome.cookies.set(newCookie);
+                }
+                return true;
+            } catch (err) {
+                console.error('Error in setAllCookies:', err);
+                return false;
+            }
         }
 
         function changeFooterTabStyles(target) {
@@ -341,6 +453,108 @@
                 )
             }
         })
+
+        copyAllBtn?.addEventListener('click', async () => {
+            try {
+                const activeTab = await getActiveTabURL();
+                console.log('当前标签页信息:', activeTab);
+                const tabId = activeTab?.id;
+
+                // 获取存储数据
+                chrome.scripting.executeScript(
+                    {
+                        target: { tabId },
+                        func: getAllStorageData
+                    },
+                    async (storageResults) => {
+                        if (chrome.runtime.lastError) {
+                            console.error('执行脚本错误:', chrome.runtime.lastError);
+                            feedbackAll.textContent = '复制失败: ' + chrome.runtime.lastError.message;
+                            return;
+                        }
+
+                        // 获取 cookies
+                        const cookies = await getAllCookies(activeTab);
+                        
+                        if (storageResults && storageResults[0]?.result) {
+                            const allData = {
+                                ...storageResults[0].result,
+                                cookies
+                            };
+                            
+                            console.log('复制的数据:', allData);
+                            
+                            await chrome.storage.local.set({ allStorageData: allData });
+                            feedbackAll.textContent = '所有存储数据已复制！';
+                        } else {
+                            console.error('没有获取到存储数据');
+                            feedbackAll.textContent = '复制失败，未能获取存储数据';
+                        }
+                        
+                        setTimeout(() => {
+                            feedbackAll.textContent = '';
+                        }, 2000);
+                    }
+                );
+            } catch (err) {
+                console.error('复制过程出错:', err);
+                feedbackAll.textContent = '复制失败: ' + err.message;
+                setTimeout(() => {
+                    feedbackAll.textContent = '';
+                }, 2000);
+            }
+        });
+
+        pasteAllBtn?.addEventListener('click', async () => {
+            try {
+                const activeTab = await getActiveTabURL();
+                const tabId = activeTab?.id;
+
+                chrome.storage.local.get(['allStorageData'], async (result) => {
+                    console.log('读取到的存储数据:', result.allStorageData);
+                    
+                    if (result.allStorageData) {
+                        // 设置存储数据
+                        chrome.scripting.executeScript(
+                            {
+                                target: { tabId },
+                                func: setAllStorageData,
+                                args: [result.allStorageData]
+                            },
+                            async (storageResults) => {
+                                if (chrome.runtime.lastError) {
+                                    console.error('执行脚本错误:', chrome.runtime.lastError);
+                                    feedbackAll.textContent = '粘贴失败: ' + chrome.runtime.lastError.message;
+                                    return;
+                                }
+
+                                // 设置 cookies
+                                if (result.allStorageData.cookies) {
+                                    await setAllCookies(activeTab, result.allStorageData.cookies);
+                                }
+
+                                feedbackAll.textContent = '所有存储数据已粘贴！';
+                                setTimeout(() => {
+                                    feedbackAll.textContent = '';
+                                }, 2000);
+                            }
+                        );
+                    } else {
+                        console.error('未找到存储的数据');
+                        feedbackAll.textContent = '没有找到已复制的存储数据！';
+                        setTimeout(() => {
+                            feedbackAll.textContent = '';
+                        }, 2000);
+                    }
+                });
+            } catch (err) {
+                console.error('粘贴过程出错:', err);
+                feedbackAll.textContent = '粘贴失败: ' + err.message;
+                setTimeout(() => {
+                    feedbackAll.textContent = '';
+                }, 2000);
+            }
+        });
 
         footerInfo.addEventListener('click', (event) => {
             if (event?.target?.id === 'infoTitle') {
